@@ -26,7 +26,7 @@ jobs:
           dotnet restore
       - name: Build
         run: |
-          dotnet build --configuration $config
+          dotnet build --configuration $config --no-restore
       - name: IntegrationTests
         run: |
           cd test-database
