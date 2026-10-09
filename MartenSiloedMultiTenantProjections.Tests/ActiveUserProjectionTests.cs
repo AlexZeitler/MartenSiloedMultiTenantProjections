@@ -57,4 +57,36 @@ public class UserProjectionTests
 
     user.ShouldBeNull();
   }
+  
+  [Fact]
+  public async Task ShouldProjectUserDisabledEventForMultipleTenantsx()
+  {
+    var pgAdmin = new PostgresAdministration(GetPostgresDbTestConnectionString());
+
+    var tenantName = GetRandomTenantName();
+    var tenantName2 = GetRandomTenantName();
+    var store = await GetTestDocumentStore();
+
+    await using var session = store.OpenSession(tenantName);
+
+    var username = "jane.doe@tempuri.org";
+    var subscribed = new Subscribed { Id = Guid.NewGuid(), Username = username, SubscribedOn = DateTimeOffset.Now };
+    var streamId = Guid.NewGuid();
+
+    session.Events.StartStream(streamId, subscribed);
+    await session.SaveChangesAsync();
+
+    var disabled = new Disabled { Id = Guid.NewGuid(), DisabledOn = DateTimeOffset.Now };
+    session.Events.Append(streamId, disabled);
+    await session.SaveChangesAsync();
+
+    var user = await session.LoadAsync<ActiveUser>(streamId);
+    await using var session2 = store.OpenSession(tenantName2);
+    var user2 = await session2.LoadAsync<ActiveUser>(streamId);
+    
+    await pgAdmin.DropDatabase(tenantName);
+
+    user.ShouldBeNull();
+    user2.ShouldBeNull();
+  }
 }
